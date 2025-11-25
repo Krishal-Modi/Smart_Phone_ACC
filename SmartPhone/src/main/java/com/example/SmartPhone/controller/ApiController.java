@@ -5,6 +5,8 @@ import com.example.SmartPhone.repository.PhoneRepository;
 import com.example.SmartPhone.service.SpellCheckService;
 import com.example.SmartPhone.service.FrequencyService;
 import com.example.SmartPhone.service.RankingService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,6 +23,8 @@ import java.util.Map;
 @RequestMapping("/api")
 public class ApiController {
 
+    private static final Logger log = LoggerFactory.getLogger(ApiController.class);
+    
     private final RankingService rankingService; // Page Ranking
     private final PhoneRepository phoneRepository;
     private final SpellCheckService spellCheckService; // Word Completion
@@ -107,12 +111,20 @@ public class ApiController {
     // Get phone details by ID
     @GetMapping("/phone/{id}")
     public ResponseEntity<Phone> getPhoneById(@PathVariable("id") Long id) {
+        log.info("Fetching phone details for ID: {}", id);
         if (id == null) {
+            log.warn("Phone ID is null");
             return ResponseEntity.badRequest().build();
         }
         return phoneRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .map(phone -> {
+                    log.info("Found phone: {} {}", phone.getBrand(), phone.getModel());
+                    return ResponseEntity.ok(phone);
+                })
+                .orElseGet(() -> {
+                    log.warn("Phone not found with ID: {}", id);
+                    return ResponseEntity.notFound().build();
+                });
     }
 
     // Count word frequency in a URL
