@@ -7,76 +7,131 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * Phone Entity - Represents a Smartphone in our Catalog
+ * 
+ * This is our main data model that stores complete specifications for each phone.
+ * It maps directly to the 'data' table in our PostgreSQL database.
+ * 
+ * Each Phone object contains:
+ * - Basic info (brand, model, price)
+ * - Display specifications (size, resolution, refresh rate)
+ * - Camera details (megapixels, lenses, features)
+ * - Battery information (capacity, fast charging)
+ * - Hardware specs (processor, RAM, storage)
+ * - Build and connectivity features
+ * - Operating system and special features
+ * 
+ * This comprehensive model allows users to make informed purchasing decisions
+ * by comparing detailed specifications side-by-side.
+ */
 @Entity
-@Table(name = "data")
+@Table(name = "data")  // Maps to PostgreSQL table named 'data'
 public class Phone {
+    
+    // ═══════════════════════════════════════════════════════════
+    // PRIMARY KEY & BASIC INFORMATION
+    // ═══════════════════════════════════════════════════════════
+    
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)  // Auto-increment ID
+    private Long id;  // Unique identifier for each phone in database
 
-    private String brand;
-    private String model;
+    private String brand;  // Manufacturer (e.g., "Samsung", "Apple", "OnePlus")
+    private String model;  // Model name (e.g., "Galaxy S23 Ultra", "iPhone 15 Pro")
 
     @Column(name = "price_cad")
-    private Double priceCAD;
+    private Double priceCAD;  // Price in Canadian Dollars (used for trending phones)
 
     @Column(name = "source_url")
-    private String sourceUrl;
+    private String sourceUrl;  // URL where phone details were scraped from
 
     @Column(name = "image_url")
-    private String imageUrl;
+    private String imageUrl;  // Product image URL (currently not used in UI)
 
-    // additional spec fields (map to columns created during import)
-    private String processor;
-    private String ram;
-    private String storage;
+    // ═══════════════════════════════════════════════════════════
+    // HARDWARE SPECIFICATIONS
+    // ═══════════════════════════════════════════════════════════
+    
+    private String processor;  // CPU/Chipset (e.g., "Snapdragon 8 Gen 2", "A17 Bionic")
+    private String ram;        // Memory size (e.g., "8GB", "12GB", "16GB")
+    private String storage;    // Internal storage (e.g., "128GB", "256GB", "512GB", "1TB")
 
+    // ═══════════════════════════════════════════════════════════
+    // DISPLAY SPECIFICATIONS
+    // ═══════════════════════════════════════════════════════════
+    
     @Column(name = "display_size")
-    private String displaySize;
+    private String displaySize;  // Screen diagonal (e.g., "6.7 inches", "6.1 inches")
 
     @Column(name = "display_resolution")
-    private String displayResolution;
+    private String displayResolution;  // Screen resolution (e.g., "1440x3200", "1170x2532")
 
     @Column(name = "refresh_rate")
-    private String refreshRate;
+    private String refreshRate;  // How fast screen updates (e.g., "120Hz", "90Hz")
 
+    // ═══════════════════════════════════════════════════════════
+    // CAMERA SPECIFICATIONS
+    // ═══════════════════════════════════════════════════════════
+    
     @Column(name = "camera_mp")
-    private String cameraMP;
+    private String cameraMP;  // Main camera megapixels (e.g., "50MP", "108MP")
 
     @Column(name = "camera_lenses")
-    private String cameraLenses;
+    private String cameraLenses;  // Number and types of lenses (e.g., "Triple: 50MP + 10MP + 12MP")
 
     @Column(name = "camera_features")
-    private String cameraFeatures;
+    private String cameraFeatures;  // Special camera abilities (e.g., "Night Mode", "8K Video")
 
+    // ═══════════════════════════════════════════════════════════
+    // BATTERY & CHARGING
+    // ═══════════════════════════════════════════════════════════
+    
     @Column(name = "battery_capacity")
-    private String batteryCapacity;
+    private String batteryCapacity;  // Battery size (e.g., "5000mAh", "4323mAh")
 
     @Column(name = "fast_charging")
-    private String fastCharging;
+    private String fastCharging;  // Fast charging support (e.g., "45W", "30W", "Yes/No")
 
     @Column(name = "wireless_charging")
-    private String wirelessCharging;
+    private String wirelessCharging;  // Wireless charging capability (e.g., "15W", "Yes/No")
 
-    private String audio;
+    // ═══════════════════════════════════════════════════════════
+    // CONNECTIVITY & BUILD QUALITY
+    // ═══════════════════════════════════════════════════════════
+    
+    private String audio;  // Audio features (e.g., "Stereo Speakers", "Dolby Atmos")
 
-    private String connectivity;
+    private String connectivity;  // Network and connections (e.g., "5G", "WiFi 6E", "Bluetooth 5.3")
 
     @Column(name = "build_quality")
-    private String buildQuality;
+    private String buildQuality;  // Materials and durability (e.g., "Gorilla Glass Victus", "IP68")
 
-    private String os;
+    private String os;  // Operating system (e.g., "Android 14", "iOS 17")
 
     @Column(name = "special_features")
-    private String specialFeatures;
+    private String specialFeatures;  // Unique features (e.g., "S Pen", "Face ID", "Under-display camera")
 
+    // ═══════════════════════════════════════════════════════════
+    // CONSTRUCTORS
+    // ═══════════════════════════════════════════════════════════
+    
+    /**
+     * Default constructor - Required by JPA/Hibernate for entity creation
+     */
     public Phone() {}
 
+    // ═══════════════════════════════════════════════════════════
+    // GETTERS & SETTERS
+    // ═══════════════════════════════════════════════════════════
+    // These allow controlled access to private fields
+    
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
     public String getBrand() { return brand; }
     public void setBrand(String brand) { this.brand = brand; }
+    
     public String getModel() { return model; }
     public void setModel(String model) { this.model = model; }
     public Double getPriceCAD() { return priceCAD; }

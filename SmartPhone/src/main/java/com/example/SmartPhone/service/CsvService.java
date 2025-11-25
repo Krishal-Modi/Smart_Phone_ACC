@@ -12,15 +12,36 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Phone Catalog Service
+ * 
+ * This service acts as the main coordinator for phone data access and search operations.
+ * It orchestrates multiple specialized services to provide:
+ * 
+ * 1. Phone data retrieval from database
+ * 2. Trending phones calculation (based on price)
+ * 3. Intelligent search with spell correction and ranking
+ * 4. Search frequency tracking for analytics
+ * 
+ * Think of this as the "conductor" that brings together all our specialized
+ * services to create a seamless search experience.
+ */
 @Service
 public class CsvService {
 
     private static final Logger log = LoggerFactory.getLogger(CsvService.class);
+    
+    // Database access layer
     private final PhoneRepository phoneRepository;
-    private final FrequencyService frequencyService; // Search Frequency
-    private final SpellCheckService spellCheckService; // Spell Checking
-    private final RankingService rankingService; // Data Validation
+    
+    // Specialized feature services
+    private final FrequencyService frequencyService;    // Tracks search patterns
+    private final SpellCheckService spellCheckService;  // Fixes typos and provides suggestions
+    private final RankingService rankingService;        // Ranks search results by relevance
 
+    /**
+     * Constructor: Spring injects all required dependencies
+     */
     public CsvService(PhoneRepository phoneRepository, FrequencyService frequencyService, 
                      SpellCheckService spellCheckService, RankingService rankingService) {
         this.phoneRepository = phoneRepository;
@@ -29,7 +50,14 @@ public class CsvService {
         this.rankingService = rankingService;
     }
 
-    // Previously returned phones from CSV; now read from DB table `data`
+    /**
+     * Retrieve All Phones from Database
+     * 
+     * Originally this service read phones from a CSV file (hence the name CsvService),
+     * but we've upgraded to use a PostgreSQL database for better performance and reliability.
+     * 
+     * @return List of all phones in our catalog, or empty list if error occurs
+     */
     public List<Phone> readAllPhones() {
         try {
             log.debug("Fetching all phones from database");
@@ -38,18 +66,30 @@ public class CsvService {
             return phones;
         } catch (DataAccessException e) {
             log.error("Database error while fetching all phones", e);
-            return Collections.emptyList();
+            return Collections.emptyList();  // Don't crash - return empty list
         } catch (Exception e) {
             log.error("Unexpected error while fetching all phones", e);
             return Collections.emptyList();
         }
     }
 
+    /**
+     * Get Trending Phones
+     * 
+     * Returns the most expensive phones in our catalog
+     * The logic is: Higher price = More premium = More likely to trend
+     * 
+     * This appears on the dashboard homepage to showcase flagship devices
+     * 
+     * @param limit How many trending phones to return (e.g., 12 for the homepage)
+     * @return List of phones sorted by price (highest first), limited to specified count
+     */
     public List<Phone> topTrending(int limit) {
         try {
+            // Safety check: Limit must be positive
             if (limit <= 0) {
                 log.warn("Invalid limit for topTrending: {}", limit);
-                limit = 12; // Default
+                limit = 12; // Default to showing 12 phones
             }
             
             log.debug("Fetching top {} trending phones", limit);
@@ -60,10 +100,13 @@ public class CsvService {
                 return Collections.emptyList();
             }
             
+            // Sort by price in DESCENDING order (most expensive first)
+            // Null-safe: If price is null, treat it as 0
             List<Phone> sorted = all.stream()
                     .sorted(Comparator.comparing(p -> p.getPriceCAD() == null ? 0.0 : -p.getPriceCAD()))
                     .collect(Collectors.toList());
                     
+            // Return only the top 'limit' phones
             if (sorted.size() > limit) {
                 return sorted.subList(0, limit);
             }
@@ -77,8 +120,27 @@ public class CsvService {
         }
     }
 
+    /**
+     * Intelligent Phone Search with Ranking and Spell Correction
+     * 
+     * This is the heart of our search functionality. It combines multiple advanced features:
+     * 
+     * 1. SEARCH FREQUENCY TRACKING: Logs every search to identify popular terms
+     * 2. SPELL CHECKING: Suggests corrections for typos (e.g., "appel" → "apple")
+     * 3. PAGE RANKING: Scores and sorts results by relevance
+     * 
+     * The ranking algorithm considers:
+     * - Exact matches (highest priority)
+     * - Fuzzy matches (handles "smasung" → "samsung")
+     * - Partial matches (brand or model contains search term)
+     * - Brand-level matches (lowest priority)
+     * 
+     * @param keyword User's search query (may contain typos or partial words)
+     * @return List of phones ranked by relevance to the search query
+     */
     public List<Phone> search(String keyword) {
         try {
+            // Handle empty searches - show all phones
             if (keyword == null || keyword.trim().isEmpty()) {
                 log.debug("Empty search keyword, returning all phones");
                 return readAllPhones();
@@ -87,33 +149,38 @@ public class CsvService {
             String kw = keyword.trim().toLowerCase();
             log.info("Searching for keyword: {}", kw);
             
-            // Validate keyword length
+            // Safety check: Prevent excessively long search queries
             if (kw.length() > 200) {
                 log.warn("Search keyword too long: {} characters", kw.length());
                 return Collections.emptyList();
             }
             
-            // log the search (FrequencyService: Search Frequency)
+            // FEATURE: SEARCH FREQUENCY TRACKING
+            // Track this search query to identify popular search terms
             try {
                 frequencyService.logSearch(kw);
             } catch (Exception e) {
                 log.error("Error logging search", e);
-                // Continue with search even if logging fails
+                // Continue with search even if logging fails - don't impact user experience
             }
             
-            // OPTIMIZATION: Use spell-checking to correct misspellings before searching (SpellCheckService)
+            // ═══════════════════════════════════════════════════════════
+            // SPELL CHECKING & AUTO-CORRECTION
+            // ═══════════════════════════════════════════════════════════
+            // Before searching, check if the user might have made a typo
+            // Example: "appel" gets auto-corrected to "apple"
+            //          "smasung" gets auto-corrected to "samsung"
+            
             String correctedQuery = kw;
             boolean isLikelyMisspelling = false;
             try {
                 List<String> suggestions = spellCheckService.suggestions(kw, 1);
                 
-                // If we have suggestions, try the first one as the corrected term
+                // If spell checker suggests a different word, it might be a typo
                 if (suggestions != null && !suggestions.isEmpty()) {
                     String firstSuggestion = suggestions.get(0).toLowerCase();
-                    // Use suggestion if it's different from original (indicates correction)
+                    // Only consider it a correction if it's actually different
                     if (!firstSuggestion.equals(kw)) {
-                        // Only use spell correction if original query returns no exact matches
-                        // This allows "samsung s23" to work even if typed as "smasung s23"
                         isLikelyMisspelling = true;
                         correctedQuery = firstSuggestion;
                         log.debug("Spell suggestion available: {} → {}", kw, correctedQuery);
@@ -121,26 +188,38 @@ public class CsvService {
                 }
             } catch (Exception e) {
                 log.error("Error getting spell suggestions", e);
-                // Continue with original query
+                // Not critical - continue with original query
             }
             
-            // First, try to find exact or close matches with the ORIGINAL query
-            // This ensures "Samsung S23" typed as "Smasung S23" still finds S23 first
+            // ═══════════════════════════════════════════════════════════
+            // SEARCH STRATEGY: Try original query first
+            // ═══════════════════════════════════════════════════════════
+            // Why? Because our fuzzy matching is smart enough to handle typos
+            // Example: "Smasung S23" will still find "Samsung Galaxy S23" even with the typo
+            
             List<Phone> originalResults = null;
             try {
                 originalResults = rankingService.getRankedPhones(kw, 100);
                 if (originalResults != null && !originalResults.isEmpty()) {
-                    log.info("Found {} phones with original query '{}' (keeping original order)", originalResults.size(), kw);
+                    log.info("Found {} phones with original query '{}' (ranked by relevance)", originalResults.size(), kw);
                     return originalResults;
                 }
             } catch (Exception e) {
                 log.debug("No ranked results for original query: {}", kw);
             }
             
-            // 1) If query looks like a storage (contains digits or 'gb'), search storage field first (RankingService: Regex Validation)
+            // ═══════════════════════════════════════════════════════════
+            // SPECIAL CASE: Storage-based searches
+            // ═══════════════════════════════════════════════════════════
+            // If user is searching for storage capacity (e.g., "512gb", "256"),
+            // prioritize searching the storage field directly
+            
+            // FEATURE: REGEX VALIDATION (from RankingService)
             if (correctedQuery.matches(".*\\d+.*") || correctedQuery.contains("gb")) {
-                // try numeric portion first (e.g., '512' from '512 gb')
+                // Extract just the numbers from the query
+                // Example: "512 gb" → "512", "256" → "256"
                 String digits = correctedQuery.replaceAll("[^0-9]", "");
+                
                 if (!digits.isEmpty()) {
                     try {
                         List<Phone> byStorageDigits = phoneRepository.findByStorageContainingIgnoreCase(digits);
@@ -153,6 +232,7 @@ public class CsvService {
                     }
                 }
                 
+                // Also try the full corrected query on storage field
                 try {
                     List<Phone> byStorage = phoneRepository.findByStorageContainingIgnoreCase(correctedQuery);
                     if (byStorage != null && !byStorage.isEmpty()) {
@@ -164,7 +244,12 @@ public class CsvService {
                 }
             }
 
-            // 2) Try with spell-corrected query if original didn't work and we have a correction
+            // ═══════════════════════════════════════════════════════════
+            // FALLBACK STRATEGY: Try spell-corrected query
+            // ═══════════════════════════════════════════════════════════
+            // If original query failed and we detected a likely typo,
+            // try again with the auto-corrected version
+            
             if (isLikelyMisspelling && !correctedQuery.equals(kw)) {
                 try {
                     List<Phone> correctedResults = rankingService.getRankedPhones(correctedQuery, 100);
