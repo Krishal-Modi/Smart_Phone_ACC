@@ -31,7 +31,8 @@ public class DashboardController {
 
     @GetMapping({"/", "/dashboard"})
     public String dashboard(HttpSession session, Model model, 
-                          @RequestParam(value = "q", required = false) String q) {
+                          @RequestParam(value = "q", required = false) String q,
+                          @RequestParam(value = "page", defaultValue = "1") int page) {
         try {
             // Get current user if logged in
             Object cu = session.getAttribute("currentUser");
@@ -44,6 +45,11 @@ public class DashboardController {
                 log.warn("Search query too long: {} characters", q.length());
                 model.addAttribute("error", "Search query is too long. Please use fewer characters.");
                 q = null; // Reset to show all phones
+            }
+            
+            // Validate page number
+            if (page < 1) {
+                page = 1;
             }
 
             List<Phone> trending = Collections.emptyList();
@@ -124,14 +130,44 @@ public class DashboardController {
                 model.addAttribute("vocab", Collections.emptyList());
             }
 
+            // Pagination logic
+            int itemsPerPage = 9;
+            int totalItems = all.size();
+            int totalPages = (int) Math.ceil((double) totalItems / itemsPerPage);
+            
+            log.info("Pagination info - Total items: {}, Items per page: {}, Total pages: {}, Current page: {}", 
+                    totalItems, itemsPerPage, totalPages, page);
+            
+            // Ensure page is within valid range
+            if (page > totalPages && totalPages > 0) {
+                page = totalPages;
+            }
+            
+            // Calculate start and end indices for current page
+            int startIndex = (page - 1) * itemsPerPage;
+            int endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+            
+            // Get phones for current page
+            List<Phone> paginatedPhones = Collections.emptyList();
+            if (!all.isEmpty() && startIndex < totalItems) {
+                paginatedPhones = all.subList(startIndex, endIndex);
+                log.info("Showing phones {} to {} (page {} of {})", 
+                        startIndex + 1, endIndex, page, totalPages);
+            }
+
             model.addAttribute("trending", trending);
-            model.addAttribute("phones", all);
+            model.addAttribute("phones", paginatedPhones);
+            model.addAttribute("currentPage", page);
+            model.addAttribute("totalPages", totalPages);
+            model.addAttribute("totalItems", totalItems);
             
         } catch (Exception e) {
             log.error("Unexpected error in dashboard", e);
             model.addAttribute("error", "An unexpected error occurred. Please try again.");
             model.addAttribute("phones", Collections.emptyList());
             model.addAttribute("trending", Collections.emptyList());
+            model.addAttribute("currentPage", 1);
+            model.addAttribute("totalPages", 0);
         }
         
         return "dashboard";

@@ -273,6 +273,42 @@
           font-size: 1rem;
         }
       }
+      
+      /* Pagination Styles */
+      .pagination {
+        margin-top: 30px;
+      }
+      
+      .pagination .page-link {
+        color: #667eea;
+        border: 2px solid #e9ecef;
+        margin: 0 3px;
+        border-radius: 8px;
+        font-weight: 600;
+        padding: 8px 15px;
+        transition: all 0.3s ease;
+      }
+      
+      .pagination .page-link:hover {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: #667eea;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+      }
+      
+      .pagination .page-item.active .page-link {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: #667eea;
+        color: white;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      }
+      
+      .pagination .page-item.disabled .page-link {
+        color: #adb5bd;
+        border-color: #e9ecef;
+        background-color: #f8f9fa;
+      }
     </style>
   </head>
   <body>
@@ -604,6 +640,81 @@
             </div>
           </div>
         </div>
+      </section>
+
+      <!-- Pagination -->
+      <section th:if="${totalPages != null && totalPages > 1}" class="mt-4">
+        <nav aria-label="Page navigation">
+          <ul class="pagination justify-content-center">
+            <!-- Previous Button -->
+            <li class="page-item" th:classappend="${currentPage == 1} ? 'disabled'">
+              <a class="page-link" 
+                 th:href="@{/(page=${currentPage - 1}, q=${query})}" 
+                 aria-label="Previous">
+                <span aria-hidden="true">&laquo;</span>
+              </a>
+            </li>
+
+            <!-- Page Numbers - Dynamic based on total pages -->
+            <th:block th:if="${totalPages <= 7}">
+              <!-- Show all pages if 7 or fewer -->
+              <li class="page-item" 
+                  th:each="page : ${#numbers.sequence(1, totalPages)}"
+                  th:classappend="${page == currentPage} ? 'active'">
+                <a class="page-link" th:href="@{/(page=${page}, q=${query})}" th:text="${page}">1</a>
+              </li>
+            </th:block>
+
+            <th:block th:if="${totalPages > 7}">
+              <!-- Show smart pagination for many pages -->
+              
+              <!-- First page -->
+              <li class="page-item" th:classappend="${currentPage == 1} ? 'active'">
+                <a class="page-link" th:href="@{/(page=1, q=${query})}">1</a>
+              </li>
+
+              <!-- Ellipsis after first page if needed -->
+              <li class="page-item disabled" th:if="${currentPage > 3}">
+                <span class="page-link">...</span>
+              </li>
+
+              <!-- Pages around current page -->
+              <th:block th:each="page : ${#numbers.sequence(2, totalPages - 1)}">
+                <li class="page-item" 
+                    th:if="${page >= currentPage - 1 && page <= currentPage + 1}"
+                    th:classappend="${page == currentPage} ? 'active'">
+                  <a class="page-link" th:href="@{/(page=${page}, q=${query})}" th:text="${page}">1</a>
+                </li>
+              </th:block>
+
+              <!-- Ellipsis before last page if needed -->
+              <li class="page-item disabled" th:if="${currentPage < totalPages - 2}">
+                <span class="page-link">...</span>
+              </li>
+
+              <!-- Last page -->
+              <li class="page-item" th:classappend="${currentPage == totalPages} ? 'active'">
+                <a class="page-link" th:href="@{/(page=${totalPages}, q=${query})}" th:text="${totalPages}">Last</a>
+              </li>
+            </th:block>
+
+            <!-- Next Button -->
+            <li class="page-item" th:classappend="${currentPage == totalPages} ? 'disabled'">
+              <a class="page-link" 
+                 th:href="@{/(page=${currentPage + 1}, q=${query})}" 
+                 aria-label="Next">
+                <span aria-hidden="true">&raquo;</span>
+              </a>
+            </li>
+          </ul>
+        </nav>
+        
+        <!-- Showing results info -->
+        <p class="text-center text-muted">
+          Showing <strong th:text="${(currentPage - 1) * 9 + 1}">1</strong> 
+          to <strong th:text="${currentPage * 9 > totalItems ? totalItems : currentPage * 9}">9</strong> 
+          of <strong th:text="${totalItems}">100</strong> phones
+        </p>
       </section>
 
     </div>

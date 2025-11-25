@@ -10,3 +10,4 @@ public class SmartPhoneApplication {
 		SpringApplication.run(SmartPhoneApplication.class, args);
 	}
 }
+
