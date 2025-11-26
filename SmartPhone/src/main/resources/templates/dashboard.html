@@ -659,9 +659,9 @@
             <th:block th:if="${totalPages <= 7}">
               <!-- Show all pages if 7 or fewer -->
               <li class="page-item" 
-                  th:each="page : ${#numbers.sequence(1, totalPages)}"
-                  th:classappend="${page == currentPage} ? 'active'">
-                <a class="page-link" th:href="@{/(page=${page}, q=${query})}" th:text="${page}">1</a>
+                  th:each="pageNum : ${#numbers.sequence(1, totalPages)}"
+                  th:classappend="${pageNum == currentPage} ? 'active'">
+                <a class="page-link" th:href="@{/(page=${pageNum}, q=${query})}" th:text="${pageNum}">1</a>
               </li>
             </th:block>
 
@@ -679,11 +679,11 @@
               </li>
 
               <!-- Pages around current page -->
-              <th:block th:each="page : ${#numbers.sequence(2, totalPages - 1)}">
+              <th:block th:each="pageNum : ${#numbers.sequence(2, totalPages - 1)}">
                 <li class="page-item" 
-                    th:if="${page >= currentPage - 1 && page <= currentPage + 1}"
-                    th:classappend="${page == currentPage} ? 'active'">
-                  <a class="page-link" th:href="@{/(page=${page}, q=${query})}" th:text="${page}">1</a>
+                    th:if="${pageNum >= currentPage - 1 && pageNum <= currentPage + 1}"
+                    th:classappend="${pageNum == currentPage} ? 'active'">
+                  <a class="page-link" th:href="@{/(page=${pageNum}, q=${query})}" th:text="${pageNum}">1</a>
                 </li>
               </th:block>
 
