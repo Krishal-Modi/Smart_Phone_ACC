@@ -96,6 +96,11 @@ public class RankingService {
                 currentScore += 10000;
                 score.put(phoneId, currentScore);
             }
+            // Very High Priority: Fuzzy brand match - handles typos like "oneplsu" → "oneplus"
+            else if (isFuzzyMatch(lowerQuery, brand)) {
+                currentScore += 9500;
+                score.put(phoneId, currentScore);
+            }
             // Very High Priority: Fuzzy match - all query words present in model/brand
             // "smasung s23" → checks if "s23" exists even if "smasung" doesn't
             else if (containsMostWords(fullText, words)) {
@@ -107,6 +112,14 @@ public class RankingService {
             else if (containsAllWords(model, words)) {
                 currentScore += 5000;
                 score.put(phoneId, currentScore);
+            }
+            
+            // Medium-High priority: Fuzzy match for any query word against brand
+            for (String word : words) {
+                if (isFuzzyMatch(word, brand)) {
+                    currentScore += 3000;
+                    break; // Only add once per phone
+                }
             }
             
             // Medium priority: Brand exact match
@@ -164,6 +177,68 @@ public class RankingService {
         
         // Return true if at least 50% of words match
         return matchCount >= Math.ceil(words.size() / 2.0);
+    }
+    
+    /**
+     * Calculate similarity between two strings using edit distance
+     * Returns true if strings are very similar (allowing for typos)
+     * 
+     * @param a First string
+     * @param b Second string
+     * @return true if edit distance is small enough
+     */
+    private boolean isFuzzyMatch(String a, String b) {
+        if (a == null || b == null) return false;
+        if (a.equals(b)) return true;
+        
+        // For very short strings, require exact match
+        if (a.length() < 3 || b.length() < 3) {
+            return a.equals(b);
+        }
+        
+        int distance = editDistance(a.toLowerCase(), b.toLowerCase());
+        int maxLength = Math.max(a.length(), b.length());
+        
+        // Allow up to 2 character differences for strings up to 10 chars
+        // or up to 20% character differences for longer strings
+        int threshold = maxLength <= 10 ? 2 : (int) Math.ceil(maxLength * 0.2);
+        
+        return distance <= threshold;
+    }
+    
+    /**
+     * Calculate edit distance (Levenshtein distance) between two strings
+     * 
+     * @param a First string
+     * @param b Second string
+     * @return Number of edits needed to transform a into b
+     */
+    private int editDistance(String a, String b) {
+        int n = a.length();
+        int m = b.length();
+        
+        if (n == 0) return m;
+        if (m == 0) return n;
+        
+        int[] prev = new int[m + 1];
+        int[] curr = new int[m + 1];
+        
+        for (int j = 0; j <= m; j++) {
+            prev[j] = j;
+        }
+        
+        for (int i = 1; i <= n; i++) {
+            curr[0] = i;
+            for (int j = 1; j <= m; j++) {
+                int cost = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
+                curr[j] = Math.min(Math.min(prev[j] + 1, curr[j - 1] + 1), prev[j - 1] + cost);
+            }
+            int[] temp = prev;
+            prev = curr;
+            curr = temp;
+        }
+        
+        return prev[m];
     }
 
     /**

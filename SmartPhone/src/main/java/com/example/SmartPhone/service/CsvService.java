@@ -9,7 +9,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -262,6 +264,36 @@ public class CsvService {
                     log.debug("No ranked results for corrected query: {}", correctedQuery);
                 }
             }
+            
+            // ═══════════════════════════════════════════════════════════
+            // FUZZY BRAND MATCHING: Handle brand name typos
+            // ═══════════════════════════════════════════════════════════
+            // Examples: "oneplsu" → "oneplus", "smasung" → "samsung"
+            // Try fuzzy matching against all known brands
+            
+            try {
+                List<Phone> allPhones = phoneRepository.findAll();
+                Set<String> uniqueBrands = new HashSet<>();
+                for (Phone p : allPhones) {
+                    if (p.getBrand() != null) {
+                        uniqueBrands.add(p.getBrand().toLowerCase());
+                    }
+                }
+                
+                // Check if query is similar to any brand name
+                for (String brand : uniqueBrands) {
+                    if (isFuzzyBrandMatch(kw, brand) || isFuzzyBrandMatch(correctedQuery, brand)) {
+                        List<Phone> brandPhones = phoneRepository.findByBrandIgnoreCase(brand);
+                        if (brandPhones != null && !brandPhones.isEmpty()) {
+                            log.info("Found {} phones using fuzzy brand match: '{}' → '{}'", 
+                                    brandPhones.size(), kw, brand);
+                            return brandPhones;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("Error in fuzzy brand matching", e);
+            }
 
             // 3) If query matches a brand (exact or partial), prefer brand results
             try {
@@ -371,6 +403,71 @@ public class CsvService {
             log.error("Unexpected error during search for keyword: {}", keyword, e);
             return Collections.emptyList();
         }
+    }
+    
+    /**
+     * Fuzzy Brand Matching - Check if query is similar to brand name
+     * Handles typos like "oneplsu" → "oneplus", "smasung" → "samsung"
+     * 
+     * @param query User's search query
+     * @param brand Actual brand name from database
+     * @return true if they're similar enough
+     */
+    private boolean isFuzzyBrandMatch(String query, String brand) {
+        if (query == null || brand == null) return false;
+        if (query.equals(brand)) return true;
+        
+        // For very short strings, require exact match
+        if (query.length() < 3 || brand.length() < 3) {
+            return query.equals(brand);
+        }
+        
+        int distance = editDistance(query.toLowerCase(), brand.toLowerCase());
+        int maxLength = Math.max(query.length(), brand.length());
+        
+        // Allow up to 2 character differences for strings up to 10 chars
+        // or up to 20% character differences for longer strings
+        // Examples: "oneplsu" vs "oneplus" = 1 difference ✓
+        //          "smasung" vs "samsung" = 2 differences ✓
+        int threshold = maxLength <= 10 ? 2 : (int) Math.ceil(maxLength * 0.2);
+        
+        return distance <= threshold;
+    }
+    
+    /**
+     * Calculate edit distance (Levenshtein distance) between two strings
+     * Measures the minimum number of single-character edits needed
+     * 
+     * @param a First string
+     * @param b Second string
+     * @return Number of edits needed to transform a into b
+     */
+    private int editDistance(String a, String b) {
+        int n = a.length();
+        int m = b.length();
+        
+        if (n == 0) return m;
+        if (m == 0) return n;
+        
+        int[] prev = new int[m + 1];
+        int[] curr = new int[m + 1];
+        
+        for (int j = 0; j <= m; j++) {
+            prev[j] = j;
+        }
+        
+        for (int i = 1; i <= n; i++) {
+            curr[0] = i;
+            for (int j = 1; j <= m; j++) {
+                int cost = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
+                curr[j] = Math.min(Math.min(prev[j] + 1, curr[j - 1] + 1), prev[j - 1] + cost);
+            }
+            int[] temp = prev;
+            prev = curr;
+            curr = temp;
+        }
+        
+        return prev[m];
     }
 
 }
